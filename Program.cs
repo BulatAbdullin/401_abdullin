@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using YOLOv4MLNet.DataStructures;
+using ImageClassification;
 
 class Program
 {

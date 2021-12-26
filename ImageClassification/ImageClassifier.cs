@@ -10,11 +10,12 @@ using Microsoft.ML;
 using static Microsoft.ML.Transforms.Image.ImageResizingEstimator;
 
 
+namespace ImageClassification
+{
 public class ImageClassifier
 {
     private string imageDir;
     private string modelPath;
-    private Task<Tuple<string, List<YoloV4Result>>>[] tasks;
     private CancellationTokenSource cts = new CancellationTokenSource();
     private static readonly string[] classesNames = new string[] {
             "person", "bicycle", "car", "motorbike", "aeroplane", "bus",
@@ -40,10 +41,10 @@ public class ImageClassifier
         this.modelPath = modelPath;
     }
 
-    private Task<Tuple<string, List<YoloV4Result>>>[] CreateTasks()
+    private List<Task<Tuple<string, List<YoloV4Result>>>> CreateTasks()
     {
         string[] files = Directory.GetFiles(imageDir);
-        tasks = new Task<Tuple<string, List<YoloV4Result>>>[files.Length];
+        var tasks = new List<Task<Tuple<string, List<YoloV4Result>>>>(files.Length);
         for (int i = 0; i < files.Length; i++)
         {
             Task<Tuple<string, List<YoloV4Result>>> task = Task.Factory.StartNew(iCopy =>
@@ -53,7 +54,7 @@ public class ImageClassifier
                 List<YoloV4Result> results = Predict(modelPath, imageDir, file);
                 return Tuple.Create(file, results);
             }, i, cts.Token);
-            tasks[i] = task;
+            tasks.Add(task);
         }
         return tasks;
     }
@@ -61,52 +62,18 @@ public class ImageClassifier
     // Process tasks as they complete
     public async IAsyncEnumerable<Tuple<string, List<YoloV4Result>>> ProcessDirectoryContentsAsync()
     {
-        CreateTasks();
-        foreach (var bucket in Interleaved(tasks))
+        var tasks = CreateTasks();
+        while(tasks.Count > 0)
         {
-            var task = await bucket;
-            yield return await task;
+            var task = await Task.WhenAny(tasks);
+            yield return task.Result;
+            tasks.Remove(task);
         }
-    }
-
-    public void Wait()
-    {
-        Task.WaitAll(tasks);
     }
 
     public void Stop()
     {
         cts.Cancel();
-    }
-
-    private static Task<Task<T>> [] Interleaved<T>(Task<T>[] inputTasks)
-    {
-        //var inputTasks = tasks.ToList();
-
-        var buckets = new TaskCompletionSource<Task<T>>[inputTasks.Length];
-        var results = new Task<Task<T>>[buckets.Length];
-        for (int i = 0; i < buckets.Length; i++)
-        {
-            buckets[i] = new TaskCompletionSource<Task<T>>();
-            results[i] = buckets[i].Task;
-        }
-
-        int nextTaskIndex = -1;
-        Action<Task<T>> continuation = completed =>
-        {
-            var bucket = buckets[Interlocked.Increment(ref nextTaskIndex)];
-            bucket.TrySetResult(completed);
-        };
-
-        foreach (var inputTask in inputTasks)
-        {
-            inputTask.ContinueWith(
-                    continuation, CancellationToken.None,
-                    TaskContinuationOptions.ExecuteSynchronously,
-                    TaskScheduler.Default);
-        }
-
-        return results;
     }
 
     private static List<YoloV4Result>
@@ -156,4 +123,5 @@ public class ImageClassifier
             return (List<YoloV4Result>) results;
         }
     }
+}
 }

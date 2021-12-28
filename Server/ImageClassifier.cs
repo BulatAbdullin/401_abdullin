@@ -51,7 +51,7 @@ public class ImageClassifier
             {
                 int idx = (int) iCopy;
                 string file = files[idx];
-                List<YoloV4Result> results = Predict(modelPath, imageDir, file);
+                List<YoloV4Result> results = Predict(modelPath, imageDir, Path.GetFileName(file));
                 return Tuple.Create(file, results);
             }, i, cts.Token);
             tasks.Add(task);

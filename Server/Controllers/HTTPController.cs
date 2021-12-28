@@ -26,13 +26,13 @@ namespace Server.Controllers
             this.db = dB;
         }
 
-        [HttpGet("get-processed-images")]
+        [Route("get-processed-images")]
         public List<ProcessedImage> GetProcessedImages()
         {
             return db.ProcessedImages.ToList();
         }
 
-        [HttpDelete("delete-all")]
+        [Route("delete-all")]
         public void DeleteAll()
         {
             db.ProcessedImages.RemoveRange(db.ProcessedImages);
@@ -40,7 +40,8 @@ namespace Server.Controllers
             db.SaveChanges();
         }
 
-        [HttpPost("detect-objects")]
+
+        [Route("detect-objects")]
         public async Task<ConcurrentBag<Tuple<string, List<YoloV4Result>>>> DetectObjects(string dir)
         {
             ImageClassifier imageClassifierModel = new ImageClassifier(dir);
